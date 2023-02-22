@@ -158,7 +158,7 @@ def bkgd_remove(dspec,method='fit',index=1,average=1):
         if method == 'startend':
             y0=np.mean(lc[range(average)])
             x0=0.5*(0+average-1)
-            y1=(np.mean(lc[range(sz[0]-average,sz[0])])
+            y1=np.mean(lc[range(sz[0]-average,sz[0])])
             x1=0.5*(sz[0]-average+sz[0]-1)
             k=(y1-y0)/(x1-x0)
             dspec_new[:,freqi]=lc-k*(np.arange(sz[0])-x0)-y0
