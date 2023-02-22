@@ -21,13 +21,11 @@ def noise_onoff(num,ttbin=1,file=0,filelen=512*1024,tperiod=80*1024,tnoise=5*102
     noise_off=[num*tperiod+tnoise-prelen,num*tperiod+2*tnoise-prelen]
     return noise_on,noise_off
 
-def noise_count(ttbin=1,file=0,filelen=512*1024,tperiod=80*1024,tnoise=5*1024):
+def noise_count(file=0,currlen=512*1024,filelen=512*1024,tperiod=80*1024,tnoise=5*1024):
     # count the number of noise diode signals in a file
-    tperiod=tperiod//ttbin
-    tnoise=tnoise//ttbin
-    prelen=filelen//ttbin*file
+    prelen=filelen*file
     n_start=np.ceil(prelen/tperiod)
-    n_end=np.ceil((prelen+filelen//ttbin)/tperiod)
+    n_end=np.ceil((prelen+currlen)/tperiod)
     return int(n_end-n_start)
 
 ################################################polarization and flux calibration#############################################
@@ -98,6 +96,14 @@ def concatdata(data,pol):
     elif pol=="V":
         return np.int16(np.concatenate(data['data'][:,:,2,:,0]))-np.int16(np.concatenate(data['data'][:,:,3,:,0]))
     
+def give_sp(filedata,ttbin):
+    # obtain four Stokes parameters from filedata
+    I_data=trebin(concatdata(filedata,"I"),ttbin)
+    Q_data=trebin(concatdata(filedata,"Q"),ttbin)
+    U_data=trebin(concatdata(filedata,"U"),ttbin)
+    V_data=trebin(concatdata(filedata,"V"),ttbin)
+    return [I_data, Q_data, U_data, V_data]
+    
 def trebin(data,ttbin):
     # rebin data in time dimension
     # data dimension time freq
@@ -134,7 +140,7 @@ def give_time(tbin=0.000196608,ttbin=1,ttbin2=1,length=512*1024,prelength=512*10
     pretime=prelength*file*tbin
     return pretime+tbin*ttbin*ttbin2*np.linspace(0,num-1,num)
 
-def give_freq(ffbin,length=1024,freqlist=np.linspace(1000,1000+1023*0.48828125,1024)):
+def give_freq(ffbin,freqlist=np.linspace(1000,1000+1023*0.48828125,1024),length=1024):
     # give frequency list in MHz
     # ffbin: frequency rebin
     # length: the length of the current file in frequency domain
@@ -143,7 +149,7 @@ def give_freq(ffbin,length=1024,freqlist=np.linspace(1000,1000+1023*0.48828125,1
     return np.array([np.mean(freqlist[ffbin*i:ffbin*(i+1)]) for i in range(num)])
 
 ################################################remove background##############################################################
-def bkgd_remove(dspec,method='fit',index=1,average=1):
+def trend_remove(dspec,method='fit',index=1,average=1):
     # remove the long-term background flux variation
     # two methods available
     # 'fit' method (recommended): use polynomial fitting to determine the background. 
@@ -190,4 +196,3 @@ def fluct_remove(dspec,method='freqwin',freqwin=[],average=1):
             spec = spec[np.isfinite(spec)]
             dspec_new[timeri,:]=np.array(dspec[timeri,:])-np.mean(spec[0:average-1])
     return dspec_new
-              
