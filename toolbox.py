@@ -29,22 +29,23 @@ def noise_count(file=0,currlen=512*1024,filelen=512*1024,tperiod=80*1024,tnoise=
     return int(n_end-n_start)
 
 ################################################polarization and flux calibration#############################################
-def obs2true(I,Q,U,V,f=1,xi=0,au2t=1):
-    # based on  Xiao-Hui Sun et al 2021 Res. Astron. Astrophys. 21 282
+def obs2true(I,Q,U,V,gamma=0,phi=0,au2t=1):
     # calibrate the observed flux in four Stokes parameters
-    I2=(I-Q*f)/(1-f**2)
-    Q2=(Q-I*f)/(1-f**2)
-    U2=U*np.cos(2*xi)+V*np.sin(2*xi)
-    V2=-U*np.sin(2*xi)+V*np.cos(2*xi)
+    # reference:  Britton (2000), van Straten (2004), Liao et al. (2016)
+    I2=I*np.cosh(2*gamma)-Q*np.sinh(2*gamma)
+    Q2=-I*np.sinh(2*gamma)+Q*np.cosh(2*gamma)
+    U2=U*np.cos(2*phi)-V*np.sin(2*phi)
+    V2=U*np.sin(2*phi)+V*np.cos(2*phi)
     return I2*au2t,Q2*au2t,U2*au2t,V2*au2t
 
-def fxi_cal(I,Q,U,V,noise_T=12.5*np.ones(1024)):
-    # based on  Xiao-Hui Sun et al 2021 Res. Astron. Astrophys. 21 282
+def diff_cal(I,Q,U,V,noise_T=12.5*np.ones(1024)):
     # determine the differential gain and phase of the orthogonal feeds using the noise diode signals
-    f=Q/I
-    xi=0.5*np.angle(U+complex(0,1)*V)
-    I2=(I-Q*f)/(1-f**2)
-    return f,xi,noise_T/I2
+    # calculate /gamma and /phi value in Mueller matrix
+    # reference:  Britton (2000), van Straten (2004), Liao et al. (2016)
+    gamma=np.arctanh(Q/I)/2
+    phi=np.angle(U-V*complex(0,1))/2
+    I2=I*np.cosh(2*gamma)-Q*np.sinh(2*gamma)
+    return gamma,phi,noise_T/I2
 
 def read_dat(datfile):
     # read data array from .dat file
@@ -78,23 +79,24 @@ def concatdata(data,pol):
     # input data dimension time time pol freq 0   512 1024 4 1024 1
     # output data dimension time freq  512*1024 1024
     # notice that the raw data is in the format of uint8, better change to int
-    # I=XX+YY, Q=XX-YY, U=XY+YX, V=XY-YX
+    # polarization channels are XX YY CR CI, CR=Re{XY}, CI=Im{XY}
+    # Stokes parameters are defined as I=XX+YY, Q=XX-YY, U=CR*2, V=CI*2
     if pol=="XX":
         return np.int16(np.concatenate(data['data'][:,:,0,:,0]))
     elif pol=="YY":
         return np.int16(np.concatenate(data['data'][:,:,1,:,0]))
-    elif pol=="XY":
+    elif pol=="CR":
         return np.int16(np.concatenate(data['data'][:,:,2,:,0]))
-    elif pol=="YX":
+    elif pol=="CI":
         return np.int16(np.concatenate(data['data'][:,:,3,:,0]))
     elif pol=="I":
         return np.int16(np.concatenate(data['data'][:,:,0,:,0]))+np.int16(np.concatenate(data['data'][:,:,1,:,0]))
     elif pol=="Q":
         return np.int16(np.concatenate(data['data'][:,:,0,:,0]))-np.int16(np.concatenate(data['data'][:,:,1,:,0]))
     elif pol=="U":
-        return np.int16(np.concatenate(data['data'][:,:,2,:,0]))+np.int16(np.concatenate(data['data'][:,:,3,:,0]))
+        return np.int16(np.concatenate(data['data'][:,:,2,:,0]))*2
     elif pol=="V":
-        return np.int16(np.concatenate(data['data'][:,:,2,:,0]))-np.int16(np.concatenate(data['data'][:,:,3,:,0]))
+        return np.int16(np.concatenate(data['data'][:,:,3,:,0]))*2
     
 def give_sp(filedata,ttbin):
     # obtain four Stokes parameters from filedata
